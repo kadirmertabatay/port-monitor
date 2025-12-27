@@ -28,8 +28,6 @@
 
 ### System Integration
 
-### System Integration
-
 - **System Tray**: The application continues running in the background even when closed. A discreet icon in your menu bar (as shown below) keeps you connected.
 - **Quick Access**: Click the tray icon to instantly view a dropdown menu of all active ports and launch them.
 - **Notifications**: Get native desktop notifications when a tracked service comes online.
