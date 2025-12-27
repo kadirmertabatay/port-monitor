@@ -15,8 +15,11 @@
  */
 
 #include "MainWindow.h"
+#include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QLabel>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
 #include <QVBoxLayout>
@@ -32,13 +35,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   connect(m_portMonitor, &PortMonitor::portsUpdated, this,
           &MainWindow::onPortsUpdated);
 
-  // Auto-refresh every 5 seconds
   m_refreshTimer = new QTimer(this);
   connect(m_refreshTimer, &QTimer::timeout, this,
           &MainWindow::onRefreshClicked);
   m_refreshTimer->start(5000);
 
-  // Initial refresh
   onRefreshClicked();
 }
 
@@ -49,28 +50,42 @@ void MainWindow::setupUi() {
   setCentralWidget(centralWidget);
 
   QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-  mainLayout->setContentsMargins(10, 10, 10, 10);
-  mainLayout->setSpacing(10);
+  mainLayout->setContentsMargins(15, 15, 15, 15);
+  mainLayout->setSpacing(15);
 
-  // Top Bar
+  // --- Dashboard Section ---
+  QLabel *dashTitle = new QLabel("Developer Port Dashboard", this);
+  dashTitle->setStyleSheet(
+      "font-size: 18px; font-weight: bold; color: #3daee9;");
+  mainLayout->addWidget(dashTitle);
+
+  QFrame *dashFrame = new QFrame(this);
+  dashFrame->setObjectName("dashFrame");
+  dashFrame->setStyleSheet("#dashFrame { background-color: #333333; "
+                           "border-radius: 8px; padding: 10px; }");
+  m_dashboardLayout = new QGridLayout(dashFrame);
+  m_dashboardLayout->setSpacing(10);
+
+  setupDashboard();
+  mainLayout->addWidget(dashFrame);
+
+  // --- Control Section ---
   QHBoxLayout *topLayout = new QHBoxLayout();
-
   m_searchBox = new QLineEdit(this);
-  m_searchBox->setPlaceholderText("Filter ports, processes...");
+  m_searchBox->setPlaceholderText("Search processes or ports...");
   connect(m_searchBox, &QLineEdit::textChanged, this,
           &MainWindow::onFilterTextChanged);
 
-  m_refreshBtn = new QPushButton("Refresh", this);
+  m_refreshBtn = new QPushButton("Refresh Now", this);
   m_refreshBtn->setCursor(Qt::PointingHandCursor);
   connect(m_refreshBtn, &QPushButton::clicked, this,
           &MainWindow::onRefreshClicked);
 
   topLayout->addWidget(m_searchBox, 1);
   topLayout->addWidget(m_refreshBtn);
-
   mainLayout->addLayout(topLayout);
 
-  // Table
+  // --- Table Section ---
   m_portTable = new QTableView(this);
   m_portTable->setAlternatingRowColors(true);
   m_portTable->horizontalHeader()->setStretchLastSection(true);
@@ -78,26 +93,100 @@ void MainWindow::setupUi() {
   m_portTable->setShowGrid(false);
   m_portTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_portTable->setSelectionMode(QAbstractItemView::SingleSelection);
-
   mainLayout->addWidget(m_portTable);
 
-  // Status Bar
-  statusBar()->showMessage("Ready");
+  statusBar()->showMessage("System Ready");
+}
+
+void MainWindow::setupDashboard() {
+  // Define tracked ports
+  struct PortDef {
+    int port;
+    QString name;
+    QString desc;
+  };
+  QList<PortDef> defs = {{3000, "React / Node", "Default for web dev"},
+                         {5000, "Flask / AirPlay", "Python or Control Center"},
+                         {5432, "PostgreSQL", "Database Service"},
+                         {6379, "Redis", "Memory Cache"},
+                         {8000, "Django / Dev", "Common Dev Port"},
+                         {8080, "HTTP / Java", "Alternative Web Port"},
+                         {27017, "MongoDB", "NoSQL Database"},
+                         {9000, "PHP / API", "FastCGI / Port 9000"}};
+
+  int col = 0;
+  int row = 0;
+  for (const auto &def : defs) {
+    QWidget *container = new QWidget(this);
+    QVBoxLayout *layout = new QVBoxLayout(container);
+    layout->setContentsMargins(5, 5, 5, 5);
+    layout->setSpacing(2);
+
+    QLabel *nameLabel =
+        new QLabel(QString("%1 (%2)").arg(def.name).arg(def.port), container);
+    nameLabel->setStyleSheet("font-weight: bold; color: #ffffff;");
+
+    QLabel *statusLabel = new QLabel("OFFLINE", container);
+    statusLabel->setStyleSheet("color: #ff5555; font-size: 11px;");
+    statusLabel->setToolTip(def.desc);
+
+    layout->addWidget(nameLabel);
+    layout->addWidget(statusLabel);
+
+    container->setStyleSheet("background-color: #252525; border-radius: 4px; "
+                             "border: 1px solid #444;");
+
+    m_dashboardLayout->addWidget(container, row, col);
+
+    m_trackedPorts.append(
+        {def.port, def.name, def.desc, statusLabel, container});
+
+    col++;
+    if (col > 3) {
+      col = 0;
+      row++;
+    }
+  }
+}
+
+void MainWindow::updateDashboard(const QList<PortInfo> &ports) {
+  for (auto &tracked : m_trackedPorts) {
+    bool found = false;
+    QString process;
+    for (const auto &p : ports) {
+      if (p.port == tracked.port) {
+        found = true;
+        process = p.processName;
+        break;
+      }
+    }
+
+    if (found) {
+      tracked.label->setText(QString("ONLINE (%1)").arg(process));
+      tracked.label->setStyleSheet("color: #81c784; font-weight: bold;");
+      tracked.container->setStyleSheet(
+          "background-color: #1e3a1e; border-radius: 4px; border: 1px solid "
+          "#81c784;");
+    } else {
+      tracked.label->setText("OFFLINE");
+      tracked.label->setStyleSheet("color: #888888;");
+      tracked.container->setStyleSheet(
+          "background-color: #252525; border-radius: 4px; border: 1px solid "
+          "#444;");
+    }
+  }
 }
 
 void MainWindow::onRefreshClicked() {
-  statusBar()->showMessage("Refreshing...");
+  statusBar()->showMessage("Scanning ports...");
   m_portMonitor->refresh();
 }
 
 void MainWindow::onPortsUpdated(const QList<PortInfo> &ports) {
   m_allPorts = ports;
-
-  // Apply functionality of filtering if text exists
+  updateDashboard(ports);
   onFilterTextChanged(m_searchBox->text());
-
-  statusBar()->showMessage(
-      QString("Found %1 active connections").arg(ports.size()));
+  statusBar()->showMessage(QString("Active connections: %1").arg(ports.size()));
 }
 
 void MainWindow::onFilterTextChanged(const QString &text) {
@@ -105,7 +194,6 @@ void MainWindow::onFilterTextChanged(const QString &text) {
     m_model->setPorts(m_allPorts);
     return;
   }
-
   QList<PortInfo> filtered;
   for (const PortInfo &info : m_allPorts) {
     if (info.processName.contains(text, Qt::CaseInsensitive) ||

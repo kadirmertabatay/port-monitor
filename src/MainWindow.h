@@ -18,11 +18,21 @@
 
 #include "PortMonitor.h"
 #include "PortTableModel.h"
+#include <QGridLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QPushButton>
 #include <QTableView>
 #include <QTimer>
+
+struct PortStatus {
+  int port;
+  QString name;
+  QString description;
+  QLabel *label;
+  QWidget *container;
+};
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -38,10 +48,14 @@ private slots:
 
 private:
   void setupUi();
+  void setupDashboard();
+  void updateDashboard(const QList<PortInfo> &ports);
 
   QTableView *m_portTable;
   QLineEdit *m_searchBox;
   QPushButton *m_refreshBtn;
+  QGridLayout *m_dashboardLayout;
+  QList<PortStatus> m_trackedPorts;
 
   PortMonitor *m_portMonitor;
   PortTableModel *m_model;

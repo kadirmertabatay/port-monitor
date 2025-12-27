@@ -17,6 +17,8 @@
 #include "PortTableModel.h"
 #include <QBrush>
 #include <QColor>
+#include <QSet>
+#include <algorithm>
 
 PortTableModel::PortTableModel(QObject *parent) : QAbstractTableModel(parent) {}
 
@@ -94,6 +96,32 @@ QVariant PortTableModel::headerData(int section, Qt::Orientation orientation,
 void PortTableModel::setPorts(const QList<PortInfo> &ports) {
   beginResetModel();
   m_ports = ports;
+
+  // Define priority ports (same as dashboard)
+  static const QSet<int> priorityPorts = {3000, 5000, 5432,  6379,
+                                          8000, 8080, 27017, 9000};
+
+  std::stable_sort(
+      m_ports.begin(), m_ports.end(), [](const PortInfo &a, const PortInfo &b) {
+        bool aPriority = priorityPorts.contains(a.port);
+        bool bPriority = priorityPorts.contains(b.port);
+
+        // 1. Priority ports first
+        if (aPriority != bPriority) {
+          return aPriority;
+        }
+
+        // 2. Amongst same priority level, put LISTEN/ESTABLISHED first
+        bool aActive = (a.state == "LISTEN" || a.state == "ESTABLISHED");
+        bool bActive = (b.state == "LISTEN" || b.state == "ESTABLISHED");
+        if (aActive != bActive) {
+          return aActive;
+        }
+
+        // 3. Finally sort by port number
+        return a.port < b.port;
+      });
+
   endResetModel();
 }
 
