@@ -18,6 +18,7 @@
 
 #include <QList>
 #include <QObject>
+#include <QSet>
 #include <QString>
 
 struct PortInfo {
@@ -40,9 +41,11 @@ public:
 
 signals:
   void portsUpdated(const QList<PortInfo> &ports);
+  void newPortDetected(const PortInfo &port);
   void errorOccurred(const QString &error);
   void processKilled(qint64 pid, bool success, const QString &message);
 
 private:
   void parseLsofOutput(const QByteArray &output);
+  QSet<QString> m_knownPorts;
 };

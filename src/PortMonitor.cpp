@@ -64,6 +64,8 @@ void PortMonitor::killProcess(qint64 pid) {
 
 void PortMonitor::parseLsofOutput(const QByteArray &output) {
   QList<PortInfo> ports;
+  QSet<QString> currentPorts;
+
   QString data = QString::fromUtf8(output);
   QStringList lines = data.split('\n', Qt::SkipEmptyParts);
 
@@ -123,16 +125,24 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
     // Local segment can be: *:3000, 127.0.0.1:3000, [::1]:3000,
     // [fe80::...]:3000
     int lastColon = localSegment.lastIndexOf(':');
-    if (lastColon != -1) {
-      info.port = localSegment.mid(lastColon + 1).toInt();
-      info.localAddress = localSegment.left(lastColon);
-    } else {
-      info.port = 0;
-      info.localAddress = localSegment;
-    }
+    info.port = (lastColon != -1) ? localSegment.mid(lastColon + 1).toInt() : 0;
+    info.localAddress =
+        (lastColon != -1) ? localSegment.left(lastColon) : localSegment;
 
     ports.append(info);
+
+    // Track unique listeners
+    if (info.state == "LISTEN") {
+      QString key = QString("%1:%2").arg(info.protocol).arg(info.port);
+      currentPorts.insert(key);
+
+      // Check if new
+      if (!m_knownPorts.contains(key)) {
+        emit newPortDetected(info);
+      }
+    }
   }
 
+  m_knownPorts = currentPorts;
   emit portsUpdated(ports);
 }

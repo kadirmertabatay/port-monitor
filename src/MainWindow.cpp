@@ -18,6 +18,7 @@
 #include "ProcessDetailsDialog.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QDesktopServices>
 #include <QFrame>
 #include <QGridLayout>
@@ -29,6 +30,7 @@
 #include <QMessageBox>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
+#include <QSystemTrayIcon>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -59,16 +61,78 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   m_portMonitor = new PortMonitor(this);
   connect(m_portMonitor, &PortMonitor::portsUpdated, this,
           &MainWindow::onPortsUpdated);
+  connect(m_portMonitor, &PortMonitor::newPortDetected, this,
+          [this](const PortInfo &info) {
+            if (m_trayIcon && m_trayIcon->isVisible()) {
+              QString msg = QString("Process: %1\nPort: %2 (%3)")
+                                .arg(info.processName)
+                                .arg(info.port)
+                                .arg(info.protocol);
+              m_trayIcon->showMessage("New Listener Detected", msg,
+                                      QSystemTrayIcon::Information, 3000);
+            }
+          });
 
   m_refreshTimer = new QTimer(this);
   connect(m_refreshTimer, &QTimer::timeout, this,
           &MainWindow::onRefreshClicked);
   m_refreshTimer->start(5000);
 
+  m_refreshTimer->start(5000);
+
+  createTrayIcon();
+
+  createTrayIcon();
+
   onRefreshClicked();
 }
 
 MainWindow::~MainWindow() {}
+
+void MainWindow::closeEvent(QCloseEvent *event) {
+  if (m_trayIcon->isVisible()) {
+    QMessageBox::information(this, "Port Monitor",
+                             "The application will keep running in the system "
+                             "tray. To terminate the program, choose 'Quit' in "
+                             "the context menu of the system tray entry.");
+    hide();
+    event->ignore();
+  }
+}
+
+void MainWindow::createTrayIcon() {
+  m_trayMenu = new QMenu(this);
+  QAction *restoreAction =
+      m_trayMenu->addAction("Restore", this, &QWidget::showNormal);
+  QAction *quitAction =
+      m_trayMenu->addAction("Quit", qApp, &QApplication::quit);
+
+  m_trayIcon = new QSystemTrayIcon(this);
+  m_trayIcon->setContextMenu(m_trayMenu);
+
+  // Use the app icon if available, or a standard one
+  QIcon icon = QIcon(":/icon.png");
+  if (icon.isNull()) {
+    icon = QIcon::fromTheme("network-wired"); // Fallback
+  }
+  m_trayIcon->setIcon(icon);
+
+  connect(m_trayIcon, &QSystemTrayIcon::activated, this,
+          &MainWindow::onTrayIconActivated);
+  m_trayIcon->show();
+}
+
+void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason) {
+  if (reason == QSystemTrayIcon::Trigger ||
+      reason == QSystemTrayIcon::DoubleClick) {
+    if (isVisible()) {
+      hide();
+    } else {
+      showNormal();
+      activateWindow();
+    }
+  }
+}
 
 void MainWindow::setupUi() {
   QWidget *centralWidget = new QWidget(this);

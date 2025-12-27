@@ -23,6 +23,7 @@
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QPushButton>
+#include <QSystemTrayIcon>
 #include <QTableView>
 #include <QTimer>
 
@@ -42,6 +43,9 @@ public:
   explicit MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
 
+protected:
+  void closeEvent(QCloseEvent *event) override;
+
 private slots:
   void onRefreshClicked();
   void onPortsUpdated(const QList<PortInfo> &ports);
@@ -49,15 +53,19 @@ private slots:
   void onCustomContextMenuRequested(const QPoint &pos);
   void onKillProcessRequested();
   void showProcessDetails();
+  void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
 
 private:
   void setupUi();
   void setupDashboard();
+  void createTrayIcon();
   void updateDashboard(const QList<PortInfo> &ports);
 
   QTableView *m_portTable;
   QLineEdit *m_searchBox;
   QPushButton *m_refreshBtn;
+  QSystemTrayIcon *m_trayIcon;
+  QMenu *m_trayMenu;
   QGridLayout *m_dashboardLayout;
   QList<PortStatus> m_trackedPorts;
 
