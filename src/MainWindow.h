@@ -22,16 +22,26 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
 #include <QTableView>
 #include <QTableWidget>
 #include <QTimer>
+
+struct PortDef {
+  int port;
+  QString name;
+  QString desc;
+};
 
 struct PortStatus {
   int port;
@@ -40,6 +50,8 @@ struct PortStatus {
   QLabel *label;
   QWidget *container;
   QPushButton *openButton;
+  QPushButton *deleteButton;
+  bool isCustom;
 };
 
 class MainWindow : public QMainWindow {
@@ -65,9 +77,14 @@ private slots:
   // Settings Slots
   void saveSettings();
   void loadSettings();
+  void saveCustomPorts();
+  void loadCustomPorts();
 
   // Log Slots
   void filterActivityLog();
+
+  // Custom Port Slot
+  void onAddPortClicked();
 
 private:
   void setupUi();
@@ -97,6 +114,7 @@ private:
   PortTableModel *m_model;
   QTimer *m_refreshTimer;
   QList<PortInfo> m_allPorts;
+  QList<PortDef> m_customPorts;
 
   // Settings Widgets
   QCheckBox *m_notificationsCheck;

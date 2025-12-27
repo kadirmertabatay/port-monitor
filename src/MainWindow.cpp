@@ -40,6 +40,7 @@
 #include <QWidgetAction>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
+  loadCustomPorts();
   setWindowIcon(QIcon(":/icon.png"));
   setupUi();
 
@@ -283,12 +284,17 @@ void MainWindow::addLogEntry(const QString &event, const PortInfo &info) {
 }
 
 void MainWindow::setupDashboard() {
-  // Define tracked ports
-  struct PortDef {
-    int port;
-    QString name;
-    QString desc;
-  };
+  // Clear existing layout items
+  QLayoutItem *child;
+  while ((child = m_dashboardLayout->takeAt(0)) != nullptr) {
+    if (child->widget()) {
+      child->widget()->deleteLater();
+    }
+    delete child;
+  }
+  m_trackedPorts.clear();
+
+  // 1. Default Ports
   QList<PortDef> defs = {{3000, "React / Node", "Default for web dev"},
                          {5000, "Flask / AirPlay", "Python or Control Center"},
                          {5432, "PostgreSQL", "Database Service"},
@@ -298,21 +304,31 @@ void MainWindow::setupDashboard() {
                          {27017, "MongoDB", "NoSQL Database"},
                          {9000, "PHP / API", "FastCGI / Port 9000"}};
 
+  // 2. Append Custom Ports
+  defs.append(m_customPorts);
+
   int col = 0;
   int row = 0;
-  for (const auto &def : defs) {
-    QWidget *container = new QWidget(this);
+  QWidget *parentWidget = m_dashboardLayout->parentWidget();
+  int defaultPortCount = defs.size() - m_customPorts.size();
+
+  for (int i = 0; i < defs.size(); ++i) {
+    const auto &def = defs[i];
+    bool isCustom = (i >= defaultPortCount);
+
+    QWidget *container = new QWidget(parentWidget);
     container->setProperty("class", "dashboardCard");
-    container->setFixedSize(160, 110); // Restore "button" size feel
+    container->setFixedSize(160, 110);
     QVBoxLayout *layout = new QVBoxLayout(container);
     layout->setContentsMargins(10, 10, 10, 10);
     layout->setSpacing(5);
 
     QLabel *nameLabel =
-        new QLabel(QString("%1 (%2)").arg(def.name).arg(def.port), this);
+        new QLabel(QString("%1 (%2)").arg(def.name).arg(def.port), container);
     nameLabel->setObjectName("dashPortName");
+    nameLabel->setWordWrap(true);
 
-    QLabel *statusLabel = new QLabel("OFFLINE", this);
+    QLabel *statusLabel = new QLabel("OFFLINE", container);
     statusLabel->setObjectName("dashStatusLabel");
     statusLabel->setStyleSheet("color: #888888;");
     statusLabel->setToolTip(def.desc);
@@ -326,15 +342,176 @@ void MainWindow::setupDashboard() {
           QUrl(QString("http://localhost:%1").arg(def.port)));
     });
 
+    // Add delete button for custom ports (positioned in top-right corner)
+    QPushButton *deleteBtn = nullptr;
+    if (isCustom) {
+      deleteBtn = new QPushButton(container);
+      deleteBtn->setObjectName("dashDeleteBtn");
+      deleteBtn->setFixedSize(24, 24);
+      deleteBtn->setStyleSheet(
+          "QPushButton { background-color: transparent; border: none; }"
+          "QPushButton:hover { background-color: rgba(231, 76, 60, 0.2); "
+          "border-radius: 12px; }");
+      deleteBtn->setCursor(Qt::PointingHandCursor);
+      deleteBtn->setToolTip("Remove this custom port");
+
+      // Create red trash icon programmatically
+      QPixmap trashIcon(24, 24);
+      trashIcon.fill(Qt::transparent);
+      QPainter painter(&trashIcon);
+      painter.setRenderHint(QPainter::Antialiasing);
+      painter.setPen(QPen(QColor("#e74c3c"), 2.0));
+      painter.setBrush(Qt::NoBrush);
+
+      // Draw trash can body
+      painter.drawRect(7, 10, 10, 10);
+      // Draw trash can lid
+      painter.drawLine(6, 9, 18, 9);
+      painter.drawLine(8, 7, 16, 7);
+      // Draw vertical lines inside
+      painter.drawLine(10, 12, 10, 18);
+      painter.drawLine(14, 12, 14, 18);
+
+      painter.end();
+      deleteBtn->setIcon(QIcon(trashIcon));
+
+      // Position in top-right corner using absolute positioning
+      deleteBtn->move(container->width() - 28, 4);
+      deleteBtn->raise(); // Ensure it's on top
+
+      int portToDelete = def.port;
+      connect(deleteBtn, &QPushButton::clicked, this, [this, portToDelete]() {
+        // Remove from custom ports list
+        for (int j = 0; j < m_customPorts.size(); ++j) {
+          if (m_customPorts[j].port == portToDelete) {
+            m_customPorts.removeAt(j);
+            break;
+          }
+        }
+        saveCustomPorts();
+        setupDashboard();
+        onRefreshClicked();
+      });
+    }
+
     layout->addWidget(nameLabel);
     layout->addWidget(statusLabel);
     layout->addStretch();
     layout->addWidget(openBtn);
 
     m_dashboardLayout->addWidget(container);
+    container->show();
 
-    m_trackedPorts.append(
-        {def.port, def.name, def.desc, statusLabel, container, openBtn});
+    m_trackedPorts.append({def.port, def.name, def.desc, statusLabel, container,
+                           openBtn, deleteBtn, isCustom});
+  }
+
+  // 3. Add "Add New Port" Card
+  QPushButton *addPortBtn = new QPushButton(parentWidget);
+  addPortBtn->setFixedSize(160, 110);
+  addPortBtn->setStyleSheet("QPushButton { "
+                            "  background-color: transparent; "
+                            "  border: 2px dashed #555555; "
+                            "  border-radius: 8px; "
+                            "  color: #888888; "
+                            "  font-weight: bold; "
+                            "  font-size: 14px; "
+                            "}"
+                            "QPushButton:hover { "
+                            "  border-color: #3daee9; "
+                            "  color: #3daee9; "
+                            "  background-color: rgba(61, 174, 233, 0.1);"
+                            "}");
+  addPortBtn->setText("+ Add Port");
+  addPortBtn->setCursor(Qt::PointingHandCursor);
+
+  connect(addPortBtn, &QPushButton::clicked, this,
+          &MainWindow::onAddPortClicked);
+
+  m_dashboardLayout->addWidget(addPortBtn);
+  addPortBtn->show();
+
+  // Force layout update
+  m_dashboardLayout->update();
+  m_dashboardLayout->activate();
+}
+
+void MainWindow::onAddPortClicked() {
+  QDialog dialog(this);
+  dialog.setWindowTitle("Add New Port");
+  dialog.setModal(true);
+  dialog.setStyleSheet("background-color: #2b2b2b; color: #ffffff;");
+
+  QFormLayout form(&dialog);
+
+  QLineEdit *nameEdit = new QLineEdit(&dialog);
+  nameEdit->setPlaceholderText("e.g. My API Server");
+  nameEdit->setStyleSheet(
+      "padding: 5px; border: 1px solid #555; border-radius: 4px; background: "
+      "#1e1e1e; color: white;");
+
+  QSpinBox *portEdit = new QSpinBox(&dialog);
+  portEdit->setRange(1, 65535);
+  portEdit->setValue(8080);
+  portEdit->setStyleSheet(
+      "padding: 5px; border: 1px solid #555; border-radius: 4px; background: "
+      "#1e1e1e; color: white;");
+
+  form.addRow("Service Name:", nameEdit);
+  form.addRow("Port Number:", portEdit);
+
+  QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                             Qt::Horizontal, &dialog);
+  buttonBox.setStyleSheet("QPushButton { padding: 5px 15px; }");
+  connect(&buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(&buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+  form.addRow(&buttonBox);
+
+  if (dialog.exec() == QDialog::Accepted) {
+    QString name = nameEdit->text().trimmed();
+    int port = portEdit->value();
+
+    if (name.isEmpty())
+      name = "Unknown Service";
+
+    // Add to custom ports
+    m_customPorts.append({port, name, "User defined port"});
+    saveCustomPorts();
+
+    // Refresh dashboard
+    setupDashboard();
+
+    // Trigger a scan immediately so it updates status
+    onRefreshClicked();
+  }
+}
+
+void MainWindow::saveCustomPorts() {
+  QSettings settings("KadirMertAbatay", "PortMonitor");
+  QStringList list;
+  for (const auto &p : m_customPorts) {
+    list << QString("%1:%2").arg(p.port).arg(p.name);
+  }
+  settings.setValue("customPorts", list);
+}
+
+void MainWindow::loadCustomPorts() {
+  QSettings settings("KadirMertAbatay", "PortMonitor");
+  QStringList list = settings.value("customPorts").toStringList();
+  m_customPorts.clear();
+
+  for (const QString &item : list) {
+    QStringList parts = item.split(":");
+    if (parts.size() >= 2) {
+      bool ok;
+      int port = parts[0].toInt(&ok);
+      if (ok) {
+        QString name =
+            parts.mid(1).join(":"); // Rejoin rest in case name has colons
+        m_customPorts.append({port, name, "User defined port"});
+      }
+    }
   }
 }
 
