@@ -38,6 +38,51 @@ QLineEdit:focus {
     border: 1px solid #3daee9;
 }
 
+#dashFrame {
+    background-color: #252525;
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid #333;
+}
+
+.dashboardCard {
+    background-color: #2d2d2d;
+    border-radius: 10px;
+    border: 1px solid #3d3d3d;
+    padding: 10px;
+}
+
+.dashboardCard[online="true"] {
+    background-color: rgba(61, 174, 233, 0.1);
+    border: 1px solid rgba(61, 174, 233, 0.4);
+}
+
+#dashPortName {
+    color: #3daee9;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+#dashStatusLabel {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+#dashOpenBtn {
+    background-color: #3daee9;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 6px 12px;
+    margin-top: 8px;
+    border-radius: 6px;
+    border: none;
+}
+
+#dashOpenBtn:hover {
+    background-color: #52beff;
+}
+
 QPushButton {
     background-color: #3daee9;
     color: white;

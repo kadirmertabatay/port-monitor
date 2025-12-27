@@ -146,19 +146,21 @@ void MainWindow::setupDashboard() {
   int row = 0;
   for (const auto &def : defs) {
     QWidget *container = new QWidget(this);
+    container->setProperty("class", "dashboardCard");
     QVBoxLayout *layout = new QVBoxLayout(container);
-    layout->setContentsMargins(5, 5, 5, 5);
-    layout->setSpacing(2);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(4);
 
     QLabel *nameLabel =
-        new QLabel(QString("%1 (%2)").arg(def.name).arg(def.port), container);
-    nameLabel->setStyleSheet("font-weight: bold; color: #ffffff;");
+        new QLabel(QString("%1 (%2)").arg(def.name).arg(def.port), this);
+    nameLabel->setObjectName("dashPortName");
 
-    QLabel *statusLabel = new QLabel("OFFLINE", container);
-    statusLabel->setStyleSheet("color: #ff5555; font-size: 11px;");
+    QLabel *statusLabel = new QLabel("OFFLINE", this);
+    statusLabel->setObjectName("dashStatusLabel");
+    statusLabel->setStyleSheet("color: #888888;");
     statusLabel->setToolTip(def.desc);
 
-    QPushButton *openBtn = new QPushButton("🔗 Open", container);
+    QPushButton *openBtn = new QPushButton("Launch", container);
     openBtn->setObjectName("dashOpenBtn");
     openBtn->setCursor(Qt::PointingHandCursor);
     openBtn->setVisible(false);
@@ -169,10 +171,8 @@ void MainWindow::setupDashboard() {
 
     layout->addWidget(nameLabel);
     layout->addWidget(statusLabel);
+    layout->addStretch();
     layout->addWidget(openBtn);
-
-    container->setStyleSheet("background-color: #252525; border-radius: 4px; "
-                             "border: 1px solid #444;");
 
     m_dashboardLayout->addWidget(container, row, col);
 
@@ -203,20 +203,19 @@ void MainWindow::updateDashboard(const QList<PortInfo> &ports) {
     }
 
     if (found) {
-      tracked.label->setText(QString("ONLINE (%1)").arg(process));
+      tracked.label->setText(QString("● ONLINE (%1)").arg(process));
       tracked.label->setStyleSheet("color: #81c784; font-weight: bold;");
       tracked.openButton->setVisible(true);
-      tracked.container->setStyleSheet(
-          "background-color: #1e3a1e; border-radius: 4px; border: 1px solid "
-          "#81c784;");
+      tracked.container->setProperty("online", true);
     } else {
-      tracked.label->setText("OFFLINE");
-      tracked.label->setStyleSheet("color: #888888;");
+      tracked.label->setText("○ OFFLINE");
+      tracked.label->setStyleSheet("color: #666666;");
       tracked.openButton->setVisible(false);
-      tracked.container->setStyleSheet(
-          "background-color: #252525; border-radius: 4px; border: 1px solid "
-          "#444;");
+      tracked.container->setProperty("online", false);
     }
+    // Refresh style
+    tracked.container->style()->unpolish(tracked.container);
+    tracked.container->style()->polish(tracked.container);
   }
 }
 
