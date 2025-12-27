@@ -1,0 +1,29 @@
+# Common
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Built-in CMake directories
+build/
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Qt Core
+*.user
+*.user.*
+PortMonitor_autogen/
+
+# Executables
+PortMonitor
+build/PortMonitor
+
+# Temporary files
+*.swp
+*~
+*.log
