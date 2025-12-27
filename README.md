@@ -69,6 +69,14 @@ docker run -it --rm \
     port-monitor
 ```
 
+### Simplified Launch (macOS)
+
+We provide a helper script that automates XQuartz startup and X11 permissions:
+
+```bash
+./run_docker.sh
+```
+
 > [!IMPORTANT]  
 > Due to Docker Desktop's VM layer on macOS, `--network host` may limit port scanning to the container's namespace. Native execution is recommended for full host system visibility.
 

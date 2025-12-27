@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     qt6-base-dev \
     qt6-tools-dev \
     libgl1-mesa-dev \
+    libgl1-mesa-dri \
+    libxkbcommon-x11-0 \
     lsof \
     && rm -rf /var/lib/apt/lists/*
 
