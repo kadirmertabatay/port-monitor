@@ -43,52 +43,74 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
   QString data = QString::fromUtf8(output);
   QStringList lines = data.split('\n', Qt::SkipEmptyParts);
 
-  // Skip header line if present (COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE
-  // NAME)
   if (!lines.isEmpty() && lines.first().startsWith("COMMAND")) {
     lines.removeFirst();
   }
 
   for (const QString &line : lines) {
-    // Simplified parsing logic
+    qDebug() << "Parsing line:" << line;
     QStringList parts =
         line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-    if (parts.size() < 9)
+    if (parts.size() < 9) {
+      qDebug() << "Line too short, skipping";
       continue;
+    }
 
     PortInfo info;
     info.processName = parts[0];
     info.pid = parts[1];
-    info.protocol = parts[4];
 
-    // NAME column contains the address and port.
-    QString nameField = parts.last();
-    // Check for state in parens at end
-    QRegularExpression stateRegex("\\(([^)]+)\\)$"); // Matches (LISTEN)
+    // Protocol is usually in the NODE column (index 7) or TYPE column
+    QString type = parts[4];
+    QString node = parts[7];
+    info.protocol =
+        node.contains("TCP") ? "TCP" : (node.contains("UDP") ? "UDP" : type);
+
+    // NAME field can be multiple parts if state is present (e.g. "address:port
+    // (LISTEN)")
+    QString nameField;
+    for (int i = 8; i < parts.size(); ++i) {
+      nameField += parts[i] + " ";
+    }
+    nameField = nameField.trimmed();
+
+    // 1. Extract State
+    QRegularExpression stateRegex("\\(([^)]+)\\)$");
     QRegularExpressionMatch match = stateRegex.match(nameField);
     if (match.hasMatch()) {
       info.state = match.captured(1);
-      nameField.replace(stateRegex, "");
+      nameField.remove(match.capturedStart(0), match.capturedLength(0));
       nameField = nameField.trimmed();
     } else {
-      info.state = "ESTABLISHED/NONE";
+      info.state = (info.protocol == "UDP") ? "NONE" : "ESTABLISHED";
     }
 
-    // nameField is now like "*:52970" or "127.0.0.1:80->..."
-    int lastColon = nameField.lastIndexOf(':');
-    if (lastColon != -1) {
-      info.localAddress = nameField.left(lastColon);
-      QString portStr = nameField.mid(lastColon + 1);
-      int arrow = portStr.indexOf("->");
-      if (arrow != -1) {
-        portStr = portStr.left(arrow);
+    // 2. Handle Connection Arrows (e.g. 127.0.0.1:3000->127.0.0.1:54321)
+    // We only care about the LOCAL part (before the arrow)
+    QString localSegment = nameField;
+    if (nameField.contains("->")) {
+      localSegment = nameField.split("->").first();
+      if (info.state == "NONE")
         info.state = "ESTABLISHED";
-      }
-      info.port = portStr.toInt();
     }
 
+    // 3. Extract Port and Address from Local Segment
+    // Local segment can be: *:3000, 127.0.0.1:3000, [::1]:3000,
+    // [fe80::...]:3000
+    int lastColon = localSegment.lastIndexOf(':');
+    if (lastColon != -1) {
+      info.port = localSegment.mid(lastColon + 1).toInt();
+      info.localAddress = localSegment.left(lastColon);
+    } else {
+      info.port = 0;
+      info.localAddress = localSegment;
+    }
+
+    qDebug() << "Found Port:" << info.port << "Process:" << info.processName
+             << "State:" << info.state;
     ports.append(info);
   }
 
+  qDebug() << "Total ports found:" << ports.size();
   emit portsUpdated(ports);
 }
