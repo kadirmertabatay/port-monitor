@@ -20,6 +20,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QIcon>
 #include <QLabel>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
@@ -28,6 +29,7 @@
 #include <QWidget>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
+  setWindowIcon(QIcon(":/icon.png"));
   setupUi();
 
   m_model = new PortTableModel(this);

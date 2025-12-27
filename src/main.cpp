@@ -17,10 +17,12 @@
 #include "MainWindow.h"
 #include <QApplication>
 #include <QFile>
+#include <QIcon>
 
 int main(int argc, char *argv[]) {
   QApplication app(argc, argv);
   app.setApplicationName("Port Monitor");
+  app.setWindowIcon(QIcon(":/icon.png"));
 
   // Load Stylesheet
   QFile styleFile(":/styles.qss");
