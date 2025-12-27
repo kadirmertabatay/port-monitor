@@ -18,13 +18,18 @@
 
 #include "PortMonitor.h"
 #include "PortTableModel.h"
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDateTime>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QPushButton>
 #include <QSystemTrayIcon>
+#include <QTabWidget>
 #include <QTableView>
+#include <QTableWidget>
 #include <QTimer>
 
 struct PortStatus {
@@ -54,13 +59,22 @@ private slots:
   void onKillProcessRequested();
   void showProcessDetails();
   void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
+  void addLogEntry(const QString &event, const PortInfo &info);
+
+  // Settings Slots
+  void saveSettings();
+  void loadSettings();
 
 private:
   void setupUi();
+  void setupSettingsTab(QWidget *parent);
   void setupDashboard();
   void createTrayIcon();
   void updateDashboard(const QList<PortInfo> &ports);
+  bool isDarkTheme();
 
+  QTabWidget *m_tabWidget;
+  QTableWidget *m_logTable;
   QTableView *m_portTable;
   QLineEdit *m_searchBox;
   QPushButton *m_refreshBtn;
@@ -73,4 +87,9 @@ private:
   PortTableModel *m_model;
   QTimer *m_refreshTimer;
   QList<PortInfo> m_allPorts;
+
+  // Settings Widgets
+  QCheckBox *m_notificationsCheck;
+  QComboBox *m_themeCombo;
+  QCheckBox *m_autoStartCheck;
 };

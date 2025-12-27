@@ -20,6 +20,7 @@
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QDesktopServices>
+#include <QDir>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -28,6 +29,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
+#include <QSettings>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
 #include <QSystemTrayIcon>
@@ -63,7 +65,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           &MainWindow::onPortsUpdated);
   connect(m_portMonitor, &PortMonitor::newPortDetected, this,
           [this](const PortInfo &info) {
-            if (m_trayIcon && m_trayIcon->isVisible()) {
+            if (m_trayIcon && m_trayIcon->isVisible() && m_notificationsCheck &&
+                m_notificationsCheck->isChecked()) {
               QString msg = QString("Process: %1\nPort: %2 (%3)")
                                 .arg(info.processName)
                                 .arg(info.port)
@@ -71,16 +74,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
               m_trayIcon->showMessage("New Listener Detected", msg,
                                       QSystemTrayIcon::Information, 3000);
             }
+            // Log to activity tab
+            addLogEntry("New Port", info);
           });
 
   m_refreshTimer = new QTimer(this);
   connect(m_refreshTimer, &QTimer::timeout, this,
           &MainWindow::onRefreshClicked);
   m_refreshTimer->start(5000);
-
-  m_refreshTimer->start(5000);
-
-  createTrayIcon();
 
   createTrayIcon();
 
@@ -138,15 +139,23 @@ void MainWindow::setupUi() {
   QWidget *centralWidget = new QWidget(this);
   setCentralWidget(centralWidget);
 
-  QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-  mainLayout->setContentsMargins(15, 15, 15, 15);
-  mainLayout->setSpacing(15);
+  QVBoxLayout *rootLayout = new QVBoxLayout(centralWidget);
+  rootLayout->setContentsMargins(0, 0, 0, 0);
+
+  m_tabWidget = new QTabWidget(this);
+  rootLayout->addWidget(m_tabWidget);
+
+  // --- Tab 1: Monitor ---
+  QWidget *monitorTab = new QWidget();
+  QVBoxLayout *monitorLayout = new QVBoxLayout(monitorTab);
+  monitorLayout->setContentsMargins(15, 15, 15, 15);
+  monitorLayout->setSpacing(15);
 
   // --- Dashboard Section ---
   QLabel *dashTitle = new QLabel("Developer Port Dashboard", this);
   dashTitle->setStyleSheet(
       "font-size: 18px; font-weight: bold; color: #3daee9;");
-  mainLayout->addWidget(dashTitle);
+  monitorLayout->addWidget(dashTitle);
 
   QFrame *dashFrame = new QFrame(this);
   dashFrame->setObjectName("dashFrame");
@@ -156,7 +165,7 @@ void MainWindow::setupUi() {
   m_dashboardLayout->setSpacing(10);
 
   setupDashboard();
-  mainLayout->addWidget(dashFrame);
+  monitorLayout->addWidget(dashFrame);
 
   // --- Control Section ---
   QHBoxLayout *topLayout = new QHBoxLayout();
@@ -172,7 +181,12 @@ void MainWindow::setupUi() {
 
   topLayout->addWidget(m_searchBox, 1);
   topLayout->addWidget(m_refreshBtn);
-  mainLayout->addLayout(topLayout);
+
+  topLayout->addWidget(m_searchBox, 1);
+  topLayout->addWidget(m_refreshBtn);
+  // Settings button removed as it is now a tab
+
+  monitorLayout->addLayout(topLayout);
 
   // --- Table Section ---
   m_portTable = new QTableView(this);
@@ -197,9 +211,48 @@ void MainWindow::setupUi() {
                                                         QHeaderView::Fixed);
   m_portTable->horizontalHeader()->resizeSection(PortTableModel::Action, 100);
 
-  mainLayout->addWidget(m_portTable);
+  monitorLayout->addWidget(m_portTable);
+
+  m_tabWidget->addTab(monitorTab, "Monitor");
+
+  // --- Tab 2: Activity Log ---
+  QWidget *logTab = new QWidget();
+  QVBoxLayout *logLayout = new QVBoxLayout(logTab);
+
+  m_logTable = new QTableWidget(0, 5, this);
+  QStringList logHeaders = {"Time", "Event", "Process", "Port", "User"};
+  m_logTable->setHorizontalHeaderLabels(logHeaders);
+  m_logTable->horizontalHeader()->setStretchLastSection(true);
+  m_logTable->horizontalHeader()->setSectionResizeMode(
+      QHeaderView::ResizeToContents);
+  m_logTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+  m_logTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  m_logTable->setAlternatingRowColors(true);
+
+  logLayout->addWidget(m_logTable);
+
+  m_tabWidget->addTab(logTab, "Activity Log");
+
+  // --- Tab 3: Settings ---
+  setupSettingsTab(m_tabWidget);
 
   statusBar()->showMessage("System Ready");
+}
+
+void MainWindow::addLogEntry(const QString &event, const PortInfo &info) {
+  int row = m_logTable->rowCount();
+  m_logTable->insertRow(row);
+
+  QString timestamp = QDateTime::currentDateTime().toString("HH:mm:ss");
+
+  m_logTable->setItem(row, 0, new QTableWidgetItem(timestamp));
+  m_logTable->setItem(row, 1, new QTableWidgetItem(event));
+  m_logTable->setItem(row, 2, new QTableWidgetItem(info.processName));
+  m_logTable->setItem(row, 3, new QTableWidgetItem(QString::number(info.port)));
+  m_logTable->setItem(row, 4, new QTableWidgetItem(info.user));
+
+  // Auto-scroll to bottom
+  m_logTable->scrollToBottom();
 }
 
 void MainWindow::setupDashboard() {
@@ -378,8 +431,8 @@ void MainWindow::onKillProcessRequested() {
                   statusBar()->showMessage("Process killed successfully.");
                   onRefreshClicked();
                 }
-                // Disconnect to avoid multiple slots overlapping on subsequent
-                // calls
+                // Disconnect to avoid multiple slots overlapping on
+                // subsequent calls
                 disconnect(m_portMonitor, &PortMonitor::processKilled, this,
                            nullptr);
               });
@@ -413,4 +466,128 @@ void MainWindow::showProcessDetails() {
 
   ProcessDetailsDialog dialog(info, this);
   dialog.exec();
+}
+
+void MainWindow::setupSettingsTab(QWidget *parent) {
+  QWidget *settingsTab = new QWidget();
+  QVBoxLayout *layout = new QVBoxLayout(settingsTab);
+  layout->setSpacing(20);
+  layout->setContentsMargins(30, 30, 30, 30);
+  layout->setAlignment(Qt::AlignTop);
+
+  // Title
+  QLabel *title = new QLabel("Application Settings", settingsTab);
+  title->setStyleSheet("font-size: 18px; font-weight: bold; color: #3daee9;");
+  layout->addWidget(title);
+
+  // Notifications
+  m_notificationsCheck =
+      new QCheckBox("Enable Desktop Notifications", settingsTab);
+  m_notificationsCheck->setToolTip(
+      "Show system notifications when a new port is active.");
+  connect(m_notificationsCheck, &QCheckBox::stateChanged, this,
+          &MainWindow::saveSettings);
+  layout->addWidget(m_notificationsCheck);
+
+  // Theme (Requires Restart)
+  QHBoxLayout *themeLayout = new QHBoxLayout();
+  layout->addLayout(themeLayout);
+  QLabel *themeLabel = new QLabel("Theme (Requires Restart):", settingsTab);
+  themeLayout->addWidget(themeLabel);
+
+  m_themeCombo = new QComboBox(settingsTab);
+  m_themeCombo->addItem("Dark Mode");
+  m_themeCombo->addItem("Light Mode");
+  connect(m_themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, &MainWindow::saveSettings);
+  themeLayout->addWidget(m_themeCombo);
+  themeLayout->addStretch();
+
+  // Auto-Start
+  m_autoStartCheck = new QCheckBox("Start automatically on login", settingsTab);
+  connect(m_autoStartCheck, &QCheckBox::stateChanged, this,
+          &MainWindow::saveSettings);
+  layout->addWidget(m_autoStartCheck);
+
+  // Add explicit Save/Info note
+  QLabel *infoLabel =
+      new QLabel("Settings are saved automatically.", settingsTab);
+  infoLabel->setStyleSheet("color: #888888; font-style: italic;");
+  layout->addWidget(infoLabel);
+
+  if (auto castedParent = qobject_cast<QTabWidget *>(parent)) {
+    castedParent->addTab(settingsTab, "Settings");
+  }
+
+  loadSettings();
+}
+
+void MainWindow::loadSettings() {
+  QSettings settings("KadirMertAbatay", "PortMonitor");
+  m_notificationsCheck->setChecked(
+      settings.value("notifications", true).toBool());
+
+  QString theme = settings.value("theme", "dark").toString();
+  m_themeCombo->setCurrentIndex(theme == "light" ? 1 : 0);
+
+  // Check if plist exists for auto-start
+  QString plistPath =
+      QDir::homePath() +
+      "/Library/LaunchAgents/com.kadirmertabatay.portmonitor.plist";
+  m_autoStartCheck->setChecked(QFile::exists(plistPath));
+}
+
+void MainWindow::saveSettings() {
+  QSettings settings("KadirMertAbatay", "PortMonitor");
+  settings.setValue("notifications", m_notificationsCheck->isChecked());
+
+  QString theme = m_themeCombo->currentIndex() == 1 ? "light" : "dark";
+  bool themeChanged = settings.value("theme").toString() != theme;
+  settings.setValue("theme", theme);
+
+  // Auto-start logic
+  QString plistPath =
+      QDir::homePath() +
+      "/Library/LaunchAgents/com.kadirmertabatay.portmonitor.plist";
+  if (m_autoStartCheck->isChecked()) {
+    if (!QFile::exists(plistPath)) {
+      QFile file(plistPath);
+      if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        QString appPath = QApplication::applicationFilePath();
+        out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            << "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+               "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+            << "<plist version=\"1.0\">\n"
+            << "<dict>\n"
+            << "    <key>Label</key>\n"
+            << "    <string>com.kadirmertabatay.portmonitor</string>\n"
+            << "    <key>ProgramArguments</key>\n"
+            << "    <array>\n"
+            << "        <string>" << appPath << "</string>\n"
+            << "    </array>\n"
+            << "    <key>RunAtLoad</key>\n"
+            << "    <true/>\n"
+            << "</dict>\n"
+            << "</plist>\n";
+        file.close();
+      }
+    }
+  } else {
+    if (QFile::exists(plistPath)) {
+      QFile::remove(plistPath);
+    }
+  }
+
+  if (themeChanged) {
+    statusBar()->showMessage(
+        "Theme changed. Please restart application to apply.");
+  } else {
+    statusBar()->showMessage("Settings saved.", 2000);
+  }
+}
+
+bool MainWindow::isDarkTheme() {
+  QSettings settings("KadirMertAbatay", "PortMonitor");
+  return settings.value("theme", "dark").toString() == "dark";
 }
