@@ -74,6 +74,7 @@ private:
   void setupSettingsTab(QWidget *parent);
   void setupDashboard();
   void createTrayIcon();
+  void updateTrayMenu();
   void updateDashboard(const QList<PortInfo> &ports);
   bool isDarkTheme();
 

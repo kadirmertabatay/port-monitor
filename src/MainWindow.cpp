@@ -29,6 +29,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPainter>
 #include <QSettings>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
@@ -36,6 +37,7 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QWidgetAction>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   setWindowIcon(QIcon(":/icon.png"));
@@ -110,6 +112,8 @@ void MainWindow::createTrayIcon() {
 
   m_trayIcon = new QSystemTrayIcon(this);
   m_trayIcon->setContextMenu(m_trayMenu);
+
+  updateTrayMenu(); // Initial population
 
   // Use the app icon if available, or a standard one
   QIcon icon = QIcon(":/icon.png");
@@ -364,6 +368,7 @@ void MainWindow::updateDashboard(const QList<PortInfo> &ports) {
     tracked.container->style()->unpolish(tracked.container);
     tracked.container->style()->polish(tracked.container);
   }
+  updateTrayMenu();
 }
 
 void MainWindow::onRefreshClicked() {
@@ -513,7 +518,7 @@ void MainWindow::setupSettingsTab(QWidget *parent) {
       new QCheckBox("Enable Desktop Notifications", settingsTab);
   m_notificationsCheck->setToolTip(
       "Show system notifications when a new port is active.");
-  connect(m_notificationsCheck, &QCheckBox::stateChanged, this,
+  connect(m_notificationsCheck, &QCheckBox::checkStateChanged, this,
           &MainWindow::saveSettings);
   layout->addWidget(m_notificationsCheck);
 
@@ -533,7 +538,7 @@ void MainWindow::setupSettingsTab(QWidget *parent) {
 
   // Auto-Start
   m_autoStartCheck = new QCheckBox("Start automatically on login", settingsTab);
-  connect(m_autoStartCheck, &QCheckBox::stateChanged, this,
+  connect(m_autoStartCheck, &QCheckBox::checkStateChanged, this,
           &MainWindow::saveSettings);
   layout->addWidget(m_autoStartCheck);
 
@@ -613,6 +618,8 @@ void MainWindow::saveSettings() {
   } else {
     statusBar()->showMessage("Settings saved.", 2000);
   }
+  // Update Tray Menu as well
+  updateTrayMenu();
 }
 
 bool MainWindow::isDarkTheme() {
@@ -655,4 +662,58 @@ void MainWindow::filterActivityLog() {
     }
     m_logTable->setRowHidden(i, !match);
   }
+}
+
+void MainWindow::updateTrayMenu() {
+  if (!m_trayMenu)
+    return;
+
+  m_trayMenu->clear();
+
+  // 1. Add Developer Ports Status
+  QAction *headerAction = m_trayMenu->addAction("ACTIVE PORTS");
+  headerAction->setEnabled(
+      false); // Functions as a visual header in native menus
+
+  bool anyActive = false;
+  for (const auto &tracked : m_trackedPorts) {
+    bool isActive = tracked.container->property("online").toBool();
+
+    if (isActive) {
+      anyActive = true;
+      // Use Unicode circle for reliable "green icon" visual
+      QString text = QString("🟢 %1 (%2)").arg(tracked.name).arg(tracked.port);
+      QAction *action = m_trayMenu->addAction(text);
+
+      // Still attempt to set a proper QIcon for consistency, using larger size
+      // for Retina
+      QPixmap pixmap(32, 32);
+      pixmap.fill(Qt::transparent);
+      QPainter painter(&pixmap);
+      painter.setRenderHint(QPainter::Antialiasing);
+      painter.setBrush(QColor("#2ecc71"));
+      painter.setPen(Qt::NoPen);
+      painter.drawEllipse(4, 4, 24, 24);
+      painter.end();
+      action->setIcon(QIcon(pixmap));
+
+      // Make clickable to open localhost
+      int port = tracked.port;
+      connect(action, &QAction::triggered, this, [port]() {
+        QDesktopServices::openUrl(
+            QUrl(QString("http://localhost:%1").arg(port)));
+      });
+    }
+  }
+
+  if (!anyActive) {
+    QAction *empty = m_trayMenu->addAction("No active developer ports");
+    empty->setEnabled(false);
+  }
+
+  m_trayMenu->addSeparator();
+
+  // 2. Standard Actions
+  m_trayMenu->addAction("Restore", this, &QWidget::showNormal);
+  m_trayMenu->addAction("Quit", qApp, &QApplication::quit);
 }
