@@ -32,6 +32,7 @@ struct PortStatus {
   QString description;
   QLabel *label;
   QWidget *container;
+  QPushButton *openButton;
 };
 
 class MainWindow : public QMainWindow {

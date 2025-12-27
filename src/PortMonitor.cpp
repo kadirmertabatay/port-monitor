@@ -106,11 +106,8 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
       info.localAddress = localSegment;
     }
 
-    qDebug() << "Found Port:" << info.port << "Process:" << info.processName
-             << "State:" << info.state;
     ports.append(info);
   }
 
-  qDebug() << "Total ports found:" << ports.size();
   emit portsUpdated(ports);
 }

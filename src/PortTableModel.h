@@ -32,6 +32,7 @@ public:
     LocalAddress,
     Port,
     State,
+    Action,
     ColumnCount
   };
 

@@ -54,7 +54,11 @@ QVariant PortTableModel::data(const QModelIndex &index, int role) const {
       return info.port;
     case State:
       return info.state;
+    case Action:
+      return (info.state == "LISTEN") ? "🔗 Open" : "";
     }
+  } else if (role == Qt::TextAlignmentRole) {
+    return Qt::AlignCenter;
   } else if (role == Qt::ForegroundRole) {
     if (info.state == "LISTEN") {
       return QBrush(QColor("#4dc2fc")); // Light blue for listening
@@ -87,6 +91,8 @@ QVariant PortTableModel::headerData(int section, Qt::Orientation orientation,
         return "Port";
       case State:
         return "State";
+      case Action:
+        return "Launch";
       }
     }
   }

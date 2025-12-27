@@ -15,6 +15,7 @@
  */
 
 #include "MainWindow.h"
+#include <QDesktopServices>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -22,6 +23,7 @@
 #include <QLabel>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -30,6 +32,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
   m_model = new PortTableModel(this);
   m_portTable->setModel(m_model);
+  connect(
+      m_portTable, &QTableView::clicked, this,
+      [this](const QModelIndex &index) {
+        if (index.column() == PortTableModel::Action) {
+          int port =
+              m_model->data(m_model->index(index.row(), PortTableModel::Port))
+                  .toInt();
+          QString state =
+              m_model->data(m_model->index(index.row(), PortTableModel::State))
+                  .toString();
+          if (state == "LISTEN" && port > 0) {
+            QDesktopServices::openUrl(
+                QUrl(QString("http://localhost:%1").arg(port)));
+          }
+        }
+      });
 
   m_portMonitor = new PortMonitor(this);
   connect(m_portMonitor, &PortMonitor::portsUpdated, this,
@@ -93,6 +111,16 @@ void MainWindow::setupUi() {
   m_portTable->setShowGrid(false);
   m_portTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_portTable->setSelectionMode(QAbstractItemView::SingleSelection);
+
+  // Set column widths
+  m_portTable->horizontalHeader()->setSectionResizeMode(
+      PortTableModel::ProcessName, QHeaderView::Stretch);
+  m_portTable->horizontalHeader()->setSectionResizeMode(
+      PortTableModel::Port, QHeaderView::ResizeToContents);
+  m_portTable->horizontalHeader()->setSectionResizeMode(PortTableModel::Action,
+                                                        QHeaderView::Fixed);
+  m_portTable->horizontalHeader()->resizeSection(PortTableModel::Action, 100);
+
   mainLayout->addWidget(m_portTable);
 
   statusBar()->showMessage("System Ready");
@@ -130,8 +158,18 @@ void MainWindow::setupDashboard() {
     statusLabel->setStyleSheet("color: #ff5555; font-size: 11px;");
     statusLabel->setToolTip(def.desc);
 
+    QPushButton *openBtn = new QPushButton("🔗 Open", container);
+    openBtn->setObjectName("dashOpenBtn");
+    openBtn->setCursor(Qt::PointingHandCursor);
+    openBtn->setVisible(false);
+    connect(openBtn, &QPushButton::clicked, this, [this, def]() {
+      QDesktopServices::openUrl(
+          QUrl(QString("http://localhost:%1").arg(def.port)));
+    });
+
     layout->addWidget(nameLabel);
     layout->addWidget(statusLabel);
+    layout->addWidget(openBtn);
 
     container->setStyleSheet("background-color: #252525; border-radius: 4px; "
                              "border: 1px solid #444;");
@@ -139,7 +177,7 @@ void MainWindow::setupDashboard() {
     m_dashboardLayout->addWidget(container, row, col);
 
     m_trackedPorts.append(
-        {def.port, def.name, def.desc, statusLabel, container});
+        {def.port, def.name, def.desc, statusLabel, container, openBtn});
 
     col++;
     if (col > 3) {
@@ -150,11 +188,14 @@ void MainWindow::setupDashboard() {
 }
 
 void MainWindow::updateDashboard(const QList<PortInfo> &ports) {
+  qDebug() << "Updating dashboard with" << ports.size() << "ports";
   for (auto &tracked : m_trackedPorts) {
     bool found = false;
     QString process;
     for (const auto &p : ports) {
       if (p.port == tracked.port) {
+        qDebug() << "Matched port" << tracked.port << "with process"
+                 << p.processName;
         found = true;
         process = p.processName;
         break;
@@ -164,12 +205,14 @@ void MainWindow::updateDashboard(const QList<PortInfo> &ports) {
     if (found) {
       tracked.label->setText(QString("ONLINE (%1)").arg(process));
       tracked.label->setStyleSheet("color: #81c784; font-weight: bold;");
+      tracked.openButton->setVisible(true);
       tracked.container->setStyleSheet(
           "background-color: #1e3a1e; border-radius: 4px; border: 1px solid "
           "#81c784;");
     } else {
       tracked.label->setText("OFFLINE");
       tracked.label->setStyleSheet("color: #888888;");
+      tracked.openButton->setVisible(false);
       tracked.container->setStyleSheet(
           "background-color: #252525; border-radius: 4px; border: 1px solid "
           "#444;");
