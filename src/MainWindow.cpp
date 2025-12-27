@@ -161,7 +161,7 @@ void MainWindow::setupUi() {
   dashFrame->setObjectName("dashFrame");
   dashFrame->setStyleSheet("#dashFrame { background-color: #333333; "
                            "border-radius: 8px; padding: 10px; }");
-  m_dashboardLayout = new QGridLayout(dashFrame);
+  m_dashboardLayout = new FlowLayout(dashFrame);
   m_dashboardLayout->setSpacing(10);
 
   setupDashboard();
@@ -178,9 +178,6 @@ void MainWindow::setupUi() {
   m_refreshBtn->setCursor(Qt::PointingHandCursor);
   connect(m_refreshBtn, &QPushButton::clicked, this,
           &MainWindow::onRefreshClicked);
-
-  topLayout->addWidget(m_searchBox, 1);
-  topLayout->addWidget(m_refreshBtn);
 
   topLayout->addWidget(m_searchBox, 1);
   topLayout->addWidget(m_refreshBtn);
@@ -302,9 +299,10 @@ void MainWindow::setupDashboard() {
   for (const auto &def : defs) {
     QWidget *container = new QWidget(this);
     container->setProperty("class", "dashboardCard");
+    container->setFixedSize(160, 110); // Restore "button" size feel
     QVBoxLayout *layout = new QVBoxLayout(container);
-    layout->setContentsMargins(12, 12, 12, 12);
-    layout->setSpacing(4);
+    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setSpacing(5);
 
     QLabel *nameLabel =
         new QLabel(QString("%1 (%2)").arg(def.name).arg(def.port), this);
@@ -329,16 +327,10 @@ void MainWindow::setupDashboard() {
     layout->addStretch();
     layout->addWidget(openBtn);
 
-    m_dashboardLayout->addWidget(container, row, col);
+    m_dashboardLayout->addWidget(container);
 
     m_trackedPorts.append(
         {def.port, def.name, def.desc, statusLabel, container, openBtn});
-
-    col++;
-    if (col > 3) {
-      col = 0;
-      row++;
-    }
   }
 }
 
@@ -387,6 +379,16 @@ void MainWindow::onPortsUpdated(const QList<PortInfo> &ports) {
 }
 
 void MainWindow::onFilterTextChanged(const QString &text) {
+  // Filter Dashboard Cards
+  for (const auto &tracked : m_trackedPorts) {
+    bool match = text.isEmpty() ||
+                 tracked.name.contains(text, Qt::CaseInsensitive) ||
+                 tracked.description.contains(text, Qt::CaseInsensitive) ||
+                 QString::number(tracked.port).contains(text);
+    tracked.container->setVisible(match);
+  }
+
+  // Filter Table
   if (text.isEmpty()) {
     m_model->setPorts(m_allPorts);
     return;

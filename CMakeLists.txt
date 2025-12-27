@@ -21,6 +21,8 @@ set(PROJECT_SOURCES
     src/PortTableModel.h
     src/ProcessDetailsDialog.cpp
     src/ProcessDetailsDialog.h
+    src/FlowLayout.cpp
+    src/FlowLayout.h
     resources/resources.qrc
 )
 

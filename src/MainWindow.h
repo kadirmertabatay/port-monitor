@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "FlowLayout.h"
 #include "PortMonitor.h"
 #include "PortTableModel.h"
 #include <QCheckBox>
@@ -88,7 +89,7 @@ private:
   QPushButton *m_refreshBtn;
   QSystemTrayIcon *m_trayIcon;
   QMenu *m_trayMenu;
-  QGridLayout *m_dashboardLayout;
+  FlowLayout *m_dashboardLayout;
   QList<PortStatus> m_trackedPorts;
 
   PortMonitor *m_portMonitor;
