@@ -218,6 +218,32 @@ void MainWindow::setupUi() {
   // --- Tab 2: Activity Log ---
   QWidget *logTab = new QWidget();
   QVBoxLayout *logLayout = new QVBoxLayout(logTab);
+  logLayout->setContentsMargins(15, 15, 15, 15);
+  logLayout->setSpacing(10);
+
+  // Log Toolbar
+  QHBoxLayout *logToolLayout = new QHBoxLayout();
+
+  m_logSearchBox = new QLineEdit(this);
+  m_logSearchBox->setPlaceholderText("Search logs...");
+  connect(m_logSearchBox, &QLineEdit::textChanged, this,
+          &MainWindow::filterActivityLog);
+
+  m_logFilterCombo = new QComboBox(this);
+  m_logFilterCombo->addItems(
+      {"All Fields", "Time", "Event", "Process", "Port", "User"});
+  connect(m_logFilterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, &MainWindow::filterActivityLog);
+
+  logToolLayout->addWidget(m_logSearchBox, 1);
+  logToolLayout->addWidget(m_logFilterCombo);
+
+  QPushButton *clearLogBtn = new QPushButton("Clear Logs", this);
+  connect(clearLogBtn, &QPushButton::clicked, this,
+          [this]() { m_logTable->setRowCount(0); });
+  logToolLayout->addWidget(clearLogBtn);
+
+  logLayout->addLayout(logToolLayout);
 
   m_logTable = new QTableWidget(0, 5, this);
   QStringList logHeaders = {"Time", "Event", "Process", "Port", "User"};
@@ -590,4 +616,41 @@ void MainWindow::saveSettings() {
 bool MainWindow::isDarkTheme() {
   QSettings settings("KadirMertAbatay", "PortMonitor");
   return settings.value("theme", "dark").toString() == "dark";
+}
+
+void MainWindow::filterActivityLog() {
+  QString text = m_logSearchBox->text().trimmed();
+  int filterIndex =
+      m_logFilterCombo->currentIndex(); // 0: All, 1: Time, 2: Event, ...
+
+  for (int i = 0; i < m_logTable->rowCount(); ++i) {
+    if (text.isEmpty()) {
+      m_logTable->setRowHidden(i, false);
+      continue;
+    }
+
+    bool match = false;
+    if (filterIndex == 0) {
+      // Check all columns
+      for (int j = 0; j < m_logTable->columnCount(); ++j) {
+        if (m_logTable->item(i, j)->text().contains(text,
+                                                    Qt::CaseInsensitive)) {
+          match = true;
+          break;
+        }
+      }
+    } else {
+      // Check specific column (Index maps 1->0, 2->1 etc if we align headers)
+      // Headers: Time(0), Event(1), Process(2), Port(3), User(4)
+      // Combo: All(0), Time(1), Event(2), Process(3), Port(4), User(5)
+      int col = filterIndex - 1;
+      if (col >= 0 && col < m_logTable->columnCount()) {
+        if (m_logTable->item(i, col)->text().contains(text,
+                                                      Qt::CaseInsensitive)) {
+          match = true;
+        }
+      }
+    }
+    m_logTable->setRowHidden(i, !match);
+  }
 }

@@ -65,6 +65,9 @@ private slots:
   void saveSettings();
   void loadSettings();
 
+  // Log Slots
+  void filterActivityLog();
+
 private:
   void setupUi();
   void setupSettingsTab(QWidget *parent);
@@ -75,6 +78,11 @@ private:
 
   QTabWidget *m_tabWidget;
   QTableWidget *m_logTable;
+
+  // Log Filter Widgets
+  QLineEdit *m_logSearchBox;
+  QComboBox *m_logFilterCombo;
+
   QTableView *m_portTable;
   QLineEdit *m_searchBox;
   QPushButton *m_refreshBtn;
