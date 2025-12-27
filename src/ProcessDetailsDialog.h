@@ -16,33 +16,19 @@
 
 #pragma once
 
-#include <QList>
-#include <QObject>
-#include <QString>
+#include "PortMonitor.h"
+#include <QDialog>
+#include <QLabel>
+#include <QVBoxLayout>
 
-struct PortInfo {
-  QString protocol;
-  QString localAddress;
-  QString state;
-  QString pid;
-  QString processName;
-  QString user;
-  int port;
-};
-
-class PortMonitor : public QObject {
+class ProcessDetailsDialog : public QDialog {
   Q_OBJECT
 
 public:
-  explicit PortMonitor(QObject *parent = nullptr);
-  void refresh();
-  Q_INVOKABLE void killProcess(qint64 pid);
-
-signals:
-  void portsUpdated(const QList<PortInfo> &ports);
-  void errorOccurred(const QString &error);
-  void processKilled(qint64 pid, bool success, const QString &message);
+  explicit ProcessDetailsDialog(const PortInfo &info,
+                                QWidget *parent = nullptr);
 
 private:
-  void parseLsofOutput(const QByteArray &output);
+  void setupUi(const PortInfo &info);
+  QWidget *createDetailRow(const QString &label, const QString &value);
 };

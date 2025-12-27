@@ -46,6 +46,8 @@ QVariant PortTableModel::data(const QModelIndex &index, int role) const {
       return info.processName;
     case PID:
       return info.pid;
+    case User:
+      return info.user;
     case Protocol:
       return info.protocol;
     case LocalAddress:
@@ -83,6 +85,8 @@ QVariant PortTableModel::headerData(int section, Qt::Orientation orientation,
         return "Process";
       case PID:
         return "PID";
+      case User:
+        return "User";
       case Protocol:
         return "Protocol";
       case LocalAddress:

@@ -38,6 +38,30 @@ void PortMonitor::refresh() {
   process->start("lsof", QStringList() << "-i" << "-P" << "-n");
 }
 
+void PortMonitor::killProcess(qint64 pid) {
+  qDebug() << "Attempting to kill process:" << pid;
+  QString program = "kill";
+  QStringList arguments;
+  arguments << "-9" << QString::number(pid);
+
+  QProcess *process = new QProcess(this);
+  connect(
+      process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+      [this, pid, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        bool success = (exitStatus == QProcess::NormalExit && exitCode == 0);
+        QString message =
+            success ? "Process killed successfully"
+                    : QString::fromUtf8(process->readAllStandardError());
+        emit processKilled(pid, success, message);
+        process->deleteLater();
+        // Trigger a refresh after killing
+        if (success) {
+          refresh();
+        }
+      });
+  process->start(program, arguments);
+}
+
 void PortMonitor::parseLsofOutput(const QByteArray &output) {
   QList<PortInfo> ports;
   QString data = QString::fromUtf8(output);
@@ -59,6 +83,7 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
     PortInfo info;
     info.processName = parts[0];
     info.pid = parts[1];
+    info.user = parts[2];
 
     // Protocol is usually in the NODE column (index 7) or TYPE column
     QString type = parts[4];

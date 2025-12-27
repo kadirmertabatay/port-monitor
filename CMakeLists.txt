@@ -19,6 +19,8 @@ set(PROJECT_SOURCES
     src/PortMonitor.h
     src/PortTableModel.cpp
     src/PortTableModel.h
+    src/ProcessDetailsDialog.cpp
+    src/ProcessDetailsDialog.h
     resources/resources.qrc
 )
 

@@ -28,6 +28,7 @@ public:
   enum Column {
     ProcessName = 0,
     PID,
+    User,
     Protocol,
     LocalAddress,
     Port,

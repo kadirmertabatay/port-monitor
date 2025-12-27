@@ -15,6 +15,9 @@
  */
 
 #include "MainWindow.h"
+#include "ProcessDetailsDialog.h"
+#include <QApplication>
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QFrame>
 #include <QGridLayout>
@@ -22,6 +25,8 @@
 #include <QHeaderView>
 #include <QIcon>
 #include <QLabel>
+#include <QMenu>
+#include <QMessageBox>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
 #include <QUrl>
@@ -113,6 +118,11 @@ void MainWindow::setupUi() {
   m_portTable->setShowGrid(false);
   m_portTable->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_portTable->setSelectionMode(QAbstractItemView::SingleSelection);
+  m_portTable->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_portTable, &QTableView::customContextMenuRequested, this,
+          &MainWindow::onCustomContextMenuRequested);
+  connect(m_portTable, &QTableView::doubleClicked, this,
+          &MainWindow::showProcessDetails);
 
   // Set column widths
   m_portTable->horizontalHeader()->setSectionResizeMode(
@@ -248,4 +258,95 @@ void MainWindow::onFilterTextChanged(const QString &text) {
     }
   }
   m_model->setPorts(filtered);
+}
+
+void MainWindow::onCustomContextMenuRequested(const QPoint &pos) {
+  QModelIndex index = m_portTable->indexAt(pos);
+  if (!index.isValid())
+    return;
+
+  QMenu contextMenu(this);
+  contextMenu.addAction(QIcon::fromTheme("application-exit"), "End Process",
+                        this, &MainWindow::onKillProcessRequested);
+  contextMenu.addAction(
+      QIcon::fromTheme("edit-copy"), "Copy PID", this, [this, index]() {
+        int row = index.row();
+        QString pid =
+            m_model->data(m_model->index(row, PortTableModel::PID)).toString();
+        QApplication::clipboard()->setText(pid);
+      });
+  contextMenu.addSeparator();
+  contextMenu.addAction(QIcon::fromTheme("dialog-information"), "View Details",
+                        this, &MainWindow::showProcessDetails);
+
+  contextMenu.exec(m_portTable->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::onKillProcessRequested() {
+  QModelIndexList selection = m_portTable->selectionModel()->selectedRows();
+  if (selection.isEmpty())
+    return;
+
+  int row = selection.first().row();
+  QString pidStr =
+      m_model->data(m_model->index(row, PortTableModel::PID)).toString();
+  QString name = m_model->data(m_model->index(row, PortTableModel::ProcessName))
+                     .toString();
+  bool ok;
+  qint64 pid = pidStr.toLongLong(&ok);
+
+  if (ok) {
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(
+        this, "End Process",
+        QString("Are you sure you want to end process '%1' (PID: %2)?")
+            .arg(name)
+            .arg(pid),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+      connect(m_portMonitor, &PortMonitor::processKilled, this,
+              [this](qint64, bool success, const QString &msg) {
+                if (!success) {
+                  QMessageBox::critical(this, "Error",
+                                        "Failed to kill process: " + msg);
+                } else {
+                  statusBar()->showMessage("Process killed successfully.");
+                  onRefreshClicked();
+                }
+                // Disconnect to avoid multiple slots overlapping on subsequent
+                // calls
+                disconnect(m_portMonitor, &PortMonitor::processKilled, this,
+                           nullptr);
+              });
+      m_portMonitor->killProcess(pid);
+    }
+  }
+}
+
+void MainWindow::showProcessDetails() {
+  QModelIndexList selection = m_portTable->selectionModel()->selectedRows();
+  if (selection.isEmpty())
+    return;
+
+  int row = selection.first().row();
+
+  PortInfo info;
+  info.processName =
+      m_model->data(m_model->index(row, PortTableModel::ProcessName))
+          .toString();
+  info.pid = m_model->data(m_model->index(row, PortTableModel::PID)).toString();
+  info.user =
+      m_model->data(m_model->index(row, PortTableModel::User)).toString();
+  info.protocol =
+      m_model->data(m_model->index(row, PortTableModel::Protocol)).toString();
+  info.localAddress =
+      m_model->data(m_model->index(row, PortTableModel::LocalAddress))
+          .toString();
+  info.port = m_model->data(m_model->index(row, PortTableModel::Port)).toInt();
+  info.state =
+      m_model->data(m_model->index(row, PortTableModel::State)).toString();
+
+  ProcessDetailsDialog dialog(info, this);
+  dialog.exec();
 }

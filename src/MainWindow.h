@@ -46,6 +46,9 @@ private slots:
   void onRefreshClicked();
   void onPortsUpdated(const QList<PortInfo> &ports);
   void onFilterTextChanged(const QString &text);
+  void onCustomContextMenuRequested(const QPoint &pos);
+  void onKillProcessRequested();
+  void showProcessDetails();
 
 private:
   void setupUi();
