@@ -4,25 +4,44 @@
 [![Qt](https://img.shields.io/badge/Qt-6.2+-41CD52.svg?logo=qt&logoColor=white)](https://www.qt.io/)
 [![C++](https://img.shields.io/badge/C++-17-00599C.svg?logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 
-**Port Monitor** is a professional desktop utility built with C++ and Qt to provide real-time visibility into active network ports and connections on macOS and Linux systems.
+**Port Monitor** is a powerful, professional desktop utility designed for developers and system administrators to visualize and manage active network ports in real-time. Built with **C++** and **Qt 6**, it combines high performance with a modern, glassmorphism-inspired interface.
+
+![Port Monitor Dashboard](resources/images/main-page.png)
 
 ---
 
 ## Key Features
 
-- **Real-time Monitoring**: Instant detection of active IPv4 and IPv6 ports using optimized `lsof` calls.
-- **Process Tracing**: Map every active port to its parent process name and PID.
-- **Advanced Filtering**: Lightning-fast search across process names, PIDs, protocols, and port numbers.
-- **Smart Refresh**: Configurable auto-refresh (5s default) or manual tactical scanning.
-- **Premium Dark Theme**: High-contrast, glassmorphism-inspired UI with color-coded connection states (Listening, Established).
+### Smart Dashboard
+
+- **Visual Cards**: View your most important ports (like 3000, 8080, 5432) as sleek, actionable cards.
+- **Custom Tracking**: Add your own custom ports to the dashboard for quick monitoring.
+- **Status Indicators**: Instantly see if a service is **Online (Green)** or **Offline (Gray)**.
+- **Quick Actions**: Launch `localhost:<port>` in your browser directly from the card.
+
+### Detailed Activity Log
+
+- **Comprehensive Table**: View all active system ports in a sortable, filterable table.
+- **Process Details**: See exact Process Names, PIDs, Users, and Protocols (TCP/UDP).
+- **Advanced Filtering**: Search by process name, PID, or port to find exactly what you're looking for.
+- **Context Actions**: Right-click any row to **Kill Process** or view more details.
+
+### System Integration
+
+- **System Tray**: A discreet menu bar icon gives you quick access to active ports without opening the main window.
+- **Notifications**: Get native desktop notifications when a tracked service comes online.
+- **Auto-Start**: Optionally launch Port Monitor automatically on system login.
+
+### Modern Experience
+
+- **Dark & Light Themes**: Fully supported dark mode with polished UI elements.
+- **Responsive Design**: A fluid layout that adapts to your window size.
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-
-Ensure you have the following installed:
 
 - **Qt 6.2+** (Gui, Widgets, Network modules)
 - **CMake 3.16+**
@@ -48,37 +67,27 @@ cmake --build build --config Release
 
 ## Docker Deployment
 
-For sandboxed builds or Linux server environments:
-
-### Build Image
+For keeping your host system clean or testing in isolation:
 
 ```bash
+# Build the image
 docker build -t port-monitor .
-```
 
-### Run Container (macOS with XQuartz)
-
-1. **Allow X11 Access**: `xhost +localhost`
-2. **Run Image**:
-
-```bash
-docker run -it --rm \
-    -e DISPLAY=host.docker.internal:0 \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    --network host \
-    port-monitor
-```
-
-### Simplified Launch (macOS)
-
-We provide a helper script that automates XQuartz startup and X11 permissions:
-
-```bash
+# Run with helper script (macOS/Linux)
 ./run_docker.sh
 ```
 
-> [!IMPORTANT]  
-> Due to Docker Desktop's VM layer on macOS, `--network host` may limit port scanning to the container's namespace. Native execution is recommended for full host system visibility.
+> **Note:** On macOS, this script handles XQuartz setup for GUI display.
+
+---
+
+## Usage Guide
+
+1. **Dashboard**: The main screen shows your "pinned" ports. Click **"Add Port"** to track a new specific port (e.g., your Rails server on 3000).
+2. **Launching**: Click the launch icon on any card to open that service in your default web browser.
+3. **Managing**: Click the Trash icon to stop tracking a custom port.
+4. **Tray Menu**: Click the menu bar icon to see a dropdown of active ports. Clicking an item there also launches it in the browser.
+5. **Settings**: Toggle themes, notifications, and auto-start preferences in the Settings tab.
 
 ---
 
@@ -87,23 +96,18 @@ We provide a helper script that automates XQuartz startup and X11 permissions:
 ```text
 port-monitor/
 ├── src/
-│   ├── main.cpp            # App entry & theme initialization
-│   ├── MainWindow.cpp/h    # Controller & Main UI logic
-│   ├── PortMonitor.cpp/h   # Backend scanner (lsof bridge)
-│   └── PortTableModel.cpp/h # High-performance table model
+│   ├── main.cpp            // App entry & theme initialization
+│   ├── MainWindow.cpp/h    // Controller & Main UI logic
+│   ├── PortMonitor.cpp/h   // Backend scanner (lsof wrapper)
+│   ├── PortTableModel.cpp  // Optimized QAbstractTableModel
+│   └── ...
 ├── resources/
-│   ├── styles.qss          # Modern dark-mode stylesheet
-│   └── resources.qrc       # Qt Resource System
-├── CMakeLists.txt          # Modern CMake build system
-└── Dockerfile              # Containerized build environment
+│   ├── images/             // UI assets and screenshots
+│   ├── styles.qss          // CSS-like Qt stylesheets
+│   └── resources.qrc       // Qt Resource Bundle
+├── CMakeLists.txt          // Build configuration
+└── Dockerfile              // Container definition
 ```
-
----
-
-## Troubleshooting
-
-- **No Ports Detected**: Verify system permissions. Some high-level ports may require elevated privileges. Run with `sudo ./build/PortMonitor` for full visibility.
-- **Display Error (Docker)**: Ensure XQuartz is running on macOS and "Allow connections from network clients" is checked in Preferences.
 
 ---
 
