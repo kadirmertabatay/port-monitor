@@ -17,6 +17,7 @@
 #pragma once
 
 #include <QList>
+#include <QMap>
 #include <QObject>
 #include <QSet>
 #include <QString>
@@ -42,10 +43,11 @@ public:
 signals:
   void portsUpdated(const QList<PortInfo> &ports);
   void newPortDetected(const PortInfo &port);
+  void portClosed(const PortInfo &port);
   void errorOccurred(const QString &error);
   void processKilled(qint64 pid, bool success, const QString &message);
 
 private:
   void parseLsofOutput(const QByteArray &output);
-  QSet<QString> m_knownPorts;
+  QMap<QString, PortInfo> m_knownPorts;
 };

@@ -64,7 +64,7 @@ void PortMonitor::killProcess(qint64 pid) {
 
 void PortMonitor::parseLsofOutput(const QByteArray &output) {
   QList<PortInfo> ports;
-  QSet<QString> currentPorts;
+  QMap<QString, PortInfo> currentPorts;
 
   QString data = QString::fromUtf8(output);
   QStringList lines = data.split('\n', Qt::SkipEmptyParts);
@@ -74,11 +74,9 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
   }
 
   for (const QString &line : lines) {
-    qDebug() << "Parsing line:" << line;
     QStringList parts =
         line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
     if (parts.size() < 9) {
-      qDebug() << "Line too short, skipping";
       continue;
     }
 
@@ -113,7 +111,6 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
     }
 
     // 2. Handle Connection Arrows (e.g. 127.0.0.1:3000->127.0.0.1:54321)
-    // We only care about the LOCAL part (before the arrow)
     QString localSegment = nameField;
     if (nameField.contains("->")) {
       localSegment = nameField.split("->").first();
@@ -122,8 +119,6 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
     }
 
     // 3. Extract Port and Address from Local Segment
-    // Local segment can be: *:3000, 127.0.0.1:3000, [::1]:3000,
-    // [fe80::...]:3000
     int lastColon = localSegment.lastIndexOf(':');
     info.port = (lastColon != -1) ? localSegment.mid(lastColon + 1).toInt() : 0;
     info.localAddress =
@@ -134,12 +129,19 @@ void PortMonitor::parseLsofOutput(const QByteArray &output) {
     // Track unique listeners
     if (info.state == "LISTEN") {
       QString key = QString("%1:%2").arg(info.protocol).arg(info.port);
-      currentPorts.insert(key);
+      currentPorts.insert(key, info);
 
       // Check if new
       if (!m_knownPorts.contains(key)) {
         emit newPortDetected(info);
       }
+    }
+  }
+
+  // Check for closed ports (in known but not in current)
+  for (const QString &key : m_knownPorts.keys()) {
+    if (!currentPorts.contains(key)) {
+      emit portClosed(m_knownPorts.value(key));
     }
   }
 

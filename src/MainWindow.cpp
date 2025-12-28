@@ -82,6 +82,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             addLogEntry("New Port", info);
           });
 
+  connect(m_portMonitor, &PortMonitor::portClosed, this,
+          [this](const PortInfo &info) { addLogEntry("Port Closed", info); });
+
   m_refreshTimer = new QTimer(this);
   connect(m_refreshTimer, &QTimer::timeout, this,
           &MainWindow::onRefreshClicked);
@@ -269,7 +272,7 @@ void MainWindow::setupUi() {
 }
 
 void MainWindow::addLogEntry(const QString &event, const PortInfo &info) {
-  int row = m_logTable->rowCount();
+  int row = 0;
   m_logTable->insertRow(row);
 
   QString timestamp = QDateTime::currentDateTime().toString("HH:mm:ss");
@@ -280,8 +283,8 @@ void MainWindow::addLogEntry(const QString &event, const PortInfo &info) {
   m_logTable->setItem(row, 3, new QTableWidgetItem(QString::number(info.port)));
   m_logTable->setItem(row, 4, new QTableWidgetItem(info.user));
 
-  // Auto-scroll to bottom
-  m_logTable->scrollToBottom();
+  // Ensure the new top item is visible
+  m_logTable->scrollToTop();
 }
 
 void MainWindow::setupDashboard() {
@@ -634,12 +637,20 @@ void MainWindow::onKillProcessRequested() {
 
     if (reply == QMessageBox::Yes) {
       connect(m_portMonitor, &PortMonitor::processKilled, this,
-              [this](qint64, bool success, const QString &msg) {
+              [this, name, pid](qint64, bool success, const QString &msg) {
                 if (!success) {
                   QMessageBox::critical(this, "Error",
                                         "Failed to kill process: " + msg);
                 } else {
                   statusBar()->showMessage("Process killed successfully.");
+
+                  // Manually create info for log since port closed might come
+                  // later or not carry same details immediately
+                  PortInfo info;
+                  info.processName = name;
+                  info.pid = QString::number(pid);
+                  addLogEntry("Process Killed", info);
+
                   onRefreshClicked();
                 }
                 // Disconnect to avoid multiple slots overlapping on
