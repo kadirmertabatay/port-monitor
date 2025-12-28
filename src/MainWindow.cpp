@@ -30,6 +30,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
+#include <QScrollArea>
 #include <QSettings>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
@@ -680,50 +681,114 @@ void MainWindow::showProcessDetails() {
 
 void MainWindow::setupSettingsTab(QWidget *parent) {
   QWidget *settingsTab = new QWidget();
-  QVBoxLayout *layout = new QVBoxLayout(settingsTab);
+  QVBoxLayout *mainLayout = new QVBoxLayout(settingsTab);
+  mainLayout->setSpacing(0);
+  mainLayout->setContentsMargins(20, 20, 20, 20);
+  mainLayout->setAlignment(Qt::AlignTop);
+
+  // Scroll Area for settings
+  QScrollArea *scrollArea = new QScrollArea(settingsTab);
+  scrollArea->setWidgetResizable(true);
+  scrollArea->setFrameShape(QFrame::NoFrame);
+  scrollArea->setStyleSheet("background: transparent;");
+
+  QWidget *scrollContent = new QWidget();
+  scrollContent->setStyleSheet("background: transparent;");
+  QVBoxLayout *layout = new QVBoxLayout(scrollContent);
   layout->setSpacing(20);
-  layout->setContentsMargins(30, 30, 30, 30);
+  layout->setContentsMargins(0, 0, 0, 0);
   layout->setAlignment(Qt::AlignTop);
 
-  // Title
-  QLabel *title = new QLabel("Application Settings", settingsTab);
-  title->setStyleSheet("font-size: 18px; font-weight: bold; color: #3daee9;");
-  layout->addWidget(title);
+  // --- Group 1: Notifications ---
+  QFrame *notifGroup = new QFrame();
+  notifGroup->setProperty("class", "settingsGroup");
+  QVBoxLayout *notifLayout = new QVBoxLayout(notifGroup);
 
-  // Notifications
-  m_notificationsCheck =
-      new QCheckBox("Enable Desktop Notifications", settingsTab);
-  m_notificationsCheck->setToolTip(
-      "Show system notifications when a new port is active.");
+  QLabel *notifHeader = new QLabel("Notifications");
+  notifHeader->setProperty("class", "settingsGroupHeader");
+  notifLayout->addWidget(notifHeader);
+
+  m_notificationsCheck = new QCheckBox("Enable Desktop Notifications");
+  m_notificationsCheck->setCursor(Qt::PointingHandCursor);
   connect(m_notificationsCheck, &QCheckBox::checkStateChanged, this,
           &MainWindow::saveSettings);
-  layout->addWidget(m_notificationsCheck);
+  notifLayout->addWidget(m_notificationsCheck);
 
-  // Theme (Requires Restart)
-  QHBoxLayout *themeLayout = new QHBoxLayout();
-  layout->addLayout(themeLayout);
-  QLabel *themeLabel = new QLabel("Theme (Requires Restart):", settingsTab);
-  themeLayout->addWidget(themeLabel);
+  QLabel *notifDesc = new QLabel(
+      "Show system notifications when a new developer port starts listening.");
+  notifDesc->setProperty("class", "settingsDesc");
+  notifDesc->setWordWrap(true);
+  notifLayout->addWidget(notifDesc);
 
-  m_themeCombo = new QComboBox(settingsTab);
+  layout->addWidget(notifGroup);
+
+  // --- Group 2: Appearance ---
+  QFrame *appearanceGroup = new QFrame();
+  appearanceGroup->setProperty("class", "settingsGroup");
+  QVBoxLayout *appearanceLayout = new QVBoxLayout(appearanceGroup);
+
+  QLabel *appearanceHeader = new QLabel("Appearance");
+  appearanceHeader->setProperty("class", "settingsGroupHeader");
+  appearanceLayout->addWidget(appearanceHeader);
+
+  QHBoxLayout *themeRow = new QHBoxLayout();
+  QLabel *themeLabel = new QLabel("Application Theme");
+  themeLabel->setProperty("class", "settingsTitle");
+  themeRow->addWidget(themeLabel);
+  themeRow->addStretch();
+
+  m_themeCombo = new QComboBox();
   m_themeCombo->addItem("Dark Mode");
   m_themeCombo->addItem("Light Mode");
+  m_themeCombo->setCursor(Qt::PointingHandCursor);
   connect(m_themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, &MainWindow::saveSettings);
-  themeLayout->addWidget(m_themeCombo);
-  themeLayout->addStretch();
+  themeRow->addWidget(m_themeCombo);
+  appearanceLayout->addLayout(themeRow);
 
-  // Auto-Start
-  m_autoStartCheck = new QCheckBox("Start automatically on login", settingsTab);
+  QLabel *themeDesc =
+      new QLabel("Choose between light and dark themes. Some changes require a "
+                 "restart to fully apply.");
+  themeDesc->setProperty("class", "settingsDesc");
+  themeDesc->setWordWrap(true);
+  appearanceLayout->addWidget(themeDesc);
+
+  layout->addWidget(appearanceGroup);
+
+  // --- Group 3: System ---
+  QFrame *systemGroup = new QFrame();
+  systemGroup->setProperty("class", "settingsGroup");
+  QVBoxLayout *systemLayout = new QVBoxLayout(systemGroup);
+
+  QLabel *systemHeader = new QLabel("System");
+  systemHeader->setProperty("class", "settingsGroupHeader");
+  systemLayout->addWidget(systemHeader);
+
+  m_autoStartCheck = new QCheckBox("Launch on Startup");
+  m_autoStartCheck->setCursor(Qt::PointingHandCursor);
   connect(m_autoStartCheck, &QCheckBox::checkStateChanged, this,
           &MainWindow::saveSettings);
-  layout->addWidget(m_autoStartCheck);
+  systemLayout->addWidget(m_autoStartCheck);
 
-  // Add explicit Save/Info note
-  QLabel *infoLabel =
-      new QLabel("Settings are saved automatically.", settingsTab);
-  infoLabel->setStyleSheet("color: #888888; font-style: italic;");
+  QLabel *systemDesc = new QLabel(
+      "Automatically start Port Monitor when you log into your computer.");
+  systemDesc->setProperty("class", "settingsDesc");
+  systemDesc->setWordWrap(true);
+  systemLayout->addWidget(systemDesc);
+
+  layout->addWidget(systemGroup);
+
+  // --- Footer ---
+  layout->addStretch();
+  QLabel *infoLabel = new QLabel("Settings are saved automatically.");
+  infoLabel->setStyleSheet(
+      "color: #666666; font-style: italic; font-size: 11px; "
+      "margin-top: 10px;");
+  infoLabel->setAlignment(Qt::AlignCenter);
   layout->addWidget(infoLabel);
+
+  scrollArea->setWidget(scrollContent);
+  mainLayout->addWidget(scrollArea);
 
   if (auto castedParent = qobject_cast<QTabWidget *>(parent)) {
     castedParent->addTab(settingsTab, "Settings");
