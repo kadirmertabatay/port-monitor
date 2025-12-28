@@ -15,6 +15,7 @@
  */
 
 #include "MainWindow.h"
+#include "PortSnifferWidget.h"
 #include "ProcessDetailsDialog.h"
 #include <QApplication>
 #include <QClipboard>
@@ -265,7 +266,11 @@ void MainWindow::setupUi() {
 
   m_tabWidget->addTab(logTab, "Activity Log");
 
-  // --- Tab 3: Settings ---
+  // --- Tab 3: Detailed Monitor ---
+  PortSnifferWidget *snifferTab = new PortSnifferWidget(this);
+  m_tabWidget->addTab(snifferTab, "Deep Monitor");
+
+  // --- Tab 4: Settings ---
   setupSettingsTab(m_tabWidget);
 
   statusBar()->showMessage("System Ready");

@@ -23,6 +23,10 @@ set(PROJECT_SOURCES
     src/ProcessDetailsDialog.h
     src/FlowLayout.cpp
     src/FlowLayout.h
+    src/PortSniffer.cpp
+    src/PortSniffer.h
+    src/PortSnifferWidget.cpp
+    src/PortSnifferWidget.h
     resources/resources.qrc
 )
 
