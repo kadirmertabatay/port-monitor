@@ -19,6 +19,7 @@
 #include "PortMonitor.h"
 #include <QDialog>
 #include <QLabel>
+#include <QTextEdit>
 #include <QVBoxLayout>
 
 class ProcessDetailsDialog : public QDialog {
@@ -28,7 +29,16 @@ public:
   explicit ProcessDetailsDialog(const PortInfo &info,
                                 QWidget *parent = nullptr);
 
+private slots:
+  void onTestConnectionClicked();
+
 private:
-  void setupUi(const PortInfo &info);
+  void setupUi();
   QWidget *createDetailRow(const QString &label, const QString &value);
+  QString getCommandLine(const QString &pid);
+
+  PortInfo m_info;
+  QTextEdit *m_cmdArgsText;
+  QLabel *m_connectionStatusLabel;
+  QPushButton *m_testConnBtn;
 };
