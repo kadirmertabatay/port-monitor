@@ -118,6 +118,5 @@ private:
 
   // Settings Widgets
   QCheckBox *m_notificationsCheck;
-  QComboBox *m_themeCombo;
   QCheckBox *m_autoStartCheck;
 };

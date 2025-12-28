@@ -722,39 +722,6 @@ void MainWindow::setupSettingsTab(QWidget *parent) {
 
   layout->addWidget(notifGroup);
 
-  // --- Group 2: Appearance ---
-  QFrame *appearanceGroup = new QFrame();
-  appearanceGroup->setProperty("class", "settingsGroup");
-  QVBoxLayout *appearanceLayout = new QVBoxLayout(appearanceGroup);
-
-  QLabel *appearanceHeader = new QLabel("Appearance");
-  appearanceHeader->setProperty("class", "settingsGroupHeader");
-  appearanceLayout->addWidget(appearanceHeader);
-
-  QHBoxLayout *themeRow = new QHBoxLayout();
-  QLabel *themeLabel = new QLabel("Application Theme");
-  themeLabel->setProperty("class", "settingsTitle");
-  themeRow->addWidget(themeLabel);
-  themeRow->addStretch();
-
-  m_themeCombo = new QComboBox();
-  m_themeCombo->addItem("Dark Mode");
-  m_themeCombo->addItem("Light Mode");
-  m_themeCombo->setCursor(Qt::PointingHandCursor);
-  connect(m_themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-          this, &MainWindow::saveSettings);
-  themeRow->addWidget(m_themeCombo);
-  appearanceLayout->addLayout(themeRow);
-
-  QLabel *themeDesc =
-      new QLabel("Choose between light and dark themes. Some changes require a "
-                 "restart to fully apply.");
-  themeDesc->setProperty("class", "settingsDesc");
-  themeDesc->setWordWrap(true);
-  appearanceLayout->addWidget(themeDesc);
-
-  layout->addWidget(appearanceGroup);
-
   // --- Group 3: System ---
   QFrame *systemGroup = new QFrame();
   systemGroup->setProperty("class", "settingsGroup");
@@ -802,9 +769,6 @@ void MainWindow::loadSettings() {
   m_notificationsCheck->setChecked(
       settings.value("notifications", true).toBool());
 
-  QString theme = settings.value("theme", "dark").toString();
-  m_themeCombo->setCurrentIndex(theme == "light" ? 1 : 0);
-
   // Check if plist exists for auto-start
   QString plistPath =
       QDir::homePath() +
@@ -815,10 +779,6 @@ void MainWindow::loadSettings() {
 void MainWindow::saveSettings() {
   QSettings settings("KadirMertAbatay", "PortMonitor");
   settings.setValue("notifications", m_notificationsCheck->isChecked());
-
-  QString theme = m_themeCombo->currentIndex() == 1 ? "light" : "dark";
-  bool themeChanged = settings.value("theme").toString() != theme;
-  settings.setValue("theme", theme);
 
   // Auto-start logic
   QString plistPath =
@@ -854,12 +814,7 @@ void MainWindow::saveSettings() {
     }
   }
 
-  if (themeChanged) {
-    statusBar()->showMessage(
-        "Theme changed. Please restart application to apply.");
-  } else {
-    statusBar()->showMessage("Settings saved.", 2000);
-  }
+  statusBar()->showMessage("Settings saved.", 2000);
   // Update Tray Menu as well
   updateTrayMenu();
 }
